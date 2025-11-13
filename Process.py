@@ -1,7 +1,10 @@
 from langchain_community.document_loaders import PyPDFLoader
-
+from transformers import pipeline
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-loader = PyPDFLoader('Test.pdf')
+from langchain_chroma import Chroma
+import csv
+from langchain_community.embeddings import HuggingFaceEmbeddings
+loader = PyPDFLoader('dora.pdf')
 text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,  # Adjust as needed
         chunk_overlap=200,  # Adjust as needed for context
@@ -14,17 +17,23 @@ documents = loader.load()
 
 #pages = loader.load_and_split()
 split_documents = text_splitter.split_documents(documents)
-
+classifier = pipeline("zero-shot-classification")
 texts = [doc.page_content for doc in split_documents]
-from langchain_chroma import Chroma
-import csv
-from langchain_community.embeddings import HuggingFaceEmbeddings
+
+"""for text in texts:
+   print(classifier(
+    text,
+    candidate_labels=["policies", "guildlines", "process"],
+    )
+   )"""
+
+
 
     # Load a pre-trained Hugging Face embedding model
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+embeddings = HuggingFaceEmbeddings(model_name="bert-base-uncased")
 
 chroma_db = Chroma.from_texts(
-    texts=texts,
+    texts=documents,
     collection_name='db_docs',
     collection_metadata={"hnsw:space": "cosine"},  # Set distance function to cosine
 embedding=embeddings
@@ -35,13 +44,11 @@ embedding=embeddings
 similarity_threshold_retriever = chroma_db.as_retriever(search_type="similarity_score_threshold",
 search_kwargs={"k": 3,"score_threshold": 0.3})
 
-query = "what steps to be implmented limit conflicts of interests ?"
+query = "when should ICT carry out security testing? "
  
-results = chroma_db.similarity_search(query=query, k=3)
+results = chroma_db.similarity_search(query=query, k=10)
 print("**********************************")
 print(query)
 for doc in results:
       print(f"* {doc.page_content} [{doc.metadata}]")
      
-
-
